@@ -30,7 +30,7 @@ export default function Grid<
   K extends Record<string, unknown> = Record<string, unknown>,
 >({
   data = [],
-  cols = [],
+  colunas: cols = [],
   alturaLinha = 36,
   alturaHeader = 48,
   sort,

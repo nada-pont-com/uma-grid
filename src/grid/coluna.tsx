@@ -1,4 +1,4 @@
-import React, { CSSProperties, memo } from 'react';
+import { CSSProperties, memo } from 'react';
 import classNames from 'classnames';
 
 import type { ColunaRenderProps } from './utils/type';

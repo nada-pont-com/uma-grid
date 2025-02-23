@@ -1,4 +1,4 @@
-import React, { CSSProperties } from 'react';
+import { CSSProperties } from 'react';
 import classNames from 'classnames';
 import type { AgregadoProps, AgregadoRenderProps } from './utils/type';
 import { withMemo } from './utils/function';

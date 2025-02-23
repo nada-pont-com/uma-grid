@@ -25,7 +25,7 @@ const { coluna, data } = generateData(100, 10);
 
 export const Default: StoryObj<GridProps<ColunaBruta>> = {
   args: {
-    cols: coluna,
+    colunas: coluna,
     data: data,
   }
 };

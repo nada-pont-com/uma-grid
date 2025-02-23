@@ -1,4 +1,3 @@
-import React from 'react';
 import Grid from './grid';
 import type {
   Coluna,
@@ -50,7 +49,7 @@ export function generateDataByColunas(
 export default function Teste() {
   const { data, coluna } = generateData(10, 24);
 
-  return <Grid data={data} cols={coluna} sort grupoSort="grid-configuracao" />;
+  return <Grid data={data} colunas={coluna} sort grupoSort="grid-configuracao" />;
 }
 
 export function TesteData<T extends Coluna<T>>({
@@ -71,7 +70,7 @@ export function TesteData<T extends Coluna<T>>({
   return (
     <Grid<T>
       data={data}
-      cols={colunas}
+      colunas={colunas}
       sort
       onSelect={onSelect}
       grupoSort="grid-configuracao"

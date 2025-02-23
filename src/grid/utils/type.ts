@@ -1,3 +1,4 @@
+import React from 'react';
 import type { JSX } from 'react';
 import type { ItemInterface } from 'react-sortablejs';
 import type { ExtendedKeyboardEvent } from 'mousetrap';
@@ -63,7 +64,7 @@ export interface GridProps<
 > {
   innerRef?: InnerRefGrid;
   data: K[];
-  cols: T[];
+  colunas: T[];
   alturaLinha?: number;
   alturaHeader?: number;
   totalLinhas?: number;
@@ -91,6 +92,11 @@ export interface GridOrdem {
 }
 
 /* Coluna */
+
+export type ColunaGrid<
+  T = ColunaBruta,
+  k extends Record<string, unknown> = Record<string, unknown>,
+> = Coluna<T, k> & T;
 
 export type Coluna<
   T = ColunaBruta,
@@ -171,18 +177,18 @@ export type RemoveHeaderEventHandler = (id?: string | number | null) => void;
 
 export type DataPushEventHandler = (
   start?: number | null,
-  end?: number | null,
+  end?: number | null
 ) => Promise<void>;
 
 /** @param index Map<key = column.key, value = column.idx> */
 export type SortHeaderEventHandler = (index: Map<string, number>) => void;
 
 export type FiltroActionHandler<T, K extends Record<string, unknown>> = (
-  props: FiltroActionProps<T, K>,
+  props: FiltroActionProps<T, K>
 ) => void;
 
 export type FiltroFunction<T, K extends Record<string, unknown>> = (
-  props: FiltroFunctionProps<T, K>,
+  props: FiltroFunctionProps<T, K>
 ) => boolean;
 
 export type AgregadoFunction<
@@ -375,5 +381,5 @@ export interface SelectOption {
   label: string | number | JSX.Element;
   value: number | string | undefined;
 }
-  
+
 export type ActionKeyPress = (e: ExtendedKeyboardEvent, combo: string) => void;

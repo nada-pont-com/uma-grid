@@ -1,4 +1,4 @@
-import React, { CSSProperties } from 'react';
+import { CSSProperties } from 'react';
 import { ReactSortable } from 'react-sortablejs';
 import classNames from 'classnames';
 

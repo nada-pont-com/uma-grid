@@ -4,7 +4,7 @@ import type {
   ColunaHeaderRenderProps,
   FiltroFunctionProps,
 } from './utils/type';
-import React, { JSX } from 'react';
+import { JSX } from 'react';
 
 export function removerAcentos(texto: string) {
   return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
