@@ -35,10 +35,13 @@
     "singleQuote": true,
     "trailingComma": "es5"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "name": "@npc/uma-grid",
   "author": "Nada.pont.com",
   "module": "dist/uma-grid.esm.js",
-  "private": "false",
+  "private": false,
   "size-limit": [
     {
       "path": "dist/uma-grid.cjs.production.min.js",
