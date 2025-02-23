@@ -38,7 +38,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "name": "@npc/uma-grid",
+  "name": "@nada.pont.com/uma-grid",
   "author": "Nada.pont.com",
   "module": "dist/uma-grid.esm.js",
   "private": false,
