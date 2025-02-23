@@ -18,7 +18,7 @@ export interface ViewColuna<
   T extends ColunaBruta = ColunaBruta,
   K extends Record<string, unknown> = Record<string, unknown>,
 > {
-  colunasBruta: T[];
+  colunasBruta: ColunaGrid<T, K>[];
   scrollLeft: number;
   alturaHeader: number;
   gridWidth: number;
@@ -64,7 +64,7 @@ export interface GridProps<
 > {
   innerRef?: InnerRefGrid;
   data: K[];
-  colunas: T[];
+  colunas: ColunaGrid<T, K>[];
   alturaLinha?: number;
   alturaHeader?: number;
   totalLinhas?: number;
@@ -95,8 +95,8 @@ export interface GridOrdem {
 
 export type ColunaGrid<
   T = ColunaBruta,
-  k extends Record<string, unknown> = Record<string, unknown>,
-> = Coluna<T, k> & T;
+  K extends Record<string, unknown> = Record<string, unknown>,
+> = Coluna<T, K> & T;
 
 export type Coluna<
   T = ColunaBruta,
@@ -133,7 +133,7 @@ export interface ColunaBruta {
 export interface ColunaProps<
   T = ColunaBruta,
   K extends Record<string, unknown> = Record<string, unknown>,
-> extends ColunaBruta,
+> extends ColunaBruta, ColunaEvents<T, K>,
     ItemInterface {
   idx: number;
   render: RenderHandler<T, K>;

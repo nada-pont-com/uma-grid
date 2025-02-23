@@ -5,14 +5,15 @@ import type {
   SelectEventHandler,
   RemoveHeaderEventHandler,
   SortHeaderEventHandler,
+  ColunaGrid,
 } from './utils/type';
 
 export function generateData(
   numItems: number,
   colunas: number,
-): { data: Array<Record<string, unknown>>; coluna: ColunaBruta[] } {
+): { data: Array<Record<string, unknown>>; coluna: ColunaGrid[] } {
   const data = [];
-  const coluna: ColunaBruta[] = [];
+  const coluna: ColunaGrid[] = [];
   for (let i = 0; i < numItems; i += 1) {
     const item: Record<string, unknown> = {};
     for (let j = 0; j < colunas; j += 1) {
@@ -30,9 +31,9 @@ export function generateData(
   return { data, coluna };
 }
 
-export function generateDataByColunas(
+export function generateDataByColunas<T = ColunaBruta>(
   numItems: number,
-  colunas: ColunaBruta[],
+  colunas: ColunaGrid<T>[],
 ): { data: Array<Record<string, unknown>> } {
   const data = [];
   for (let i = 0; i < numItems; i += 1) {
@@ -59,7 +60,7 @@ export function TesteData<T extends Coluna<T>>({
   onRemoveHeader,
   onSortHeader,
 }: {
-  colunas: T[];
+  colunas: ColunaGrid<T>[];
   className: string;
   onSelect: SelectEventHandler<T>;
   onRemoveHeader: RemoveHeaderEventHandler;
