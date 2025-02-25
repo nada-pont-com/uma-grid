@@ -85,7 +85,6 @@
     "rollup-plugin-postcss": "^4.0.2",
     "size-limit": "^11.2.0",
     "storybook": "^8.5.8",
-    "tsdx": "^0.14.1",
     "tslib": "^2.8.1",
     "tsup": "^8.3.6",
     "typescript": "^5.7.3"
