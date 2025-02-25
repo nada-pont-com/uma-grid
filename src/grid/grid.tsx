@@ -1,7 +1,6 @@
 import React, { CSSProperties, useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 
-import copy from 'copy-to-clipboard';
 import classNames from 'classnames';
 
 import ElementResizeListener from './utils/resize';
@@ -12,7 +11,8 @@ import {
   useViewColumn,
   useViewData,
   useViewFiltro,
-  useMousetrap,
+  useCopy,
+  useSelect,
 } from './utils/use';
 import renderRow, { NoRow } from './linha';
 import { HeaderRender } from './header';
@@ -29,25 +29,23 @@ export default function Grid<
   T extends Coluna<T, K> = ColunaBruta,
   K extends Record<string, unknown> = Record<string, unknown>,
 >({
-  data = [],
+  data: dados = [],
   colunas: cols = [],
   alturaLinha = 36,
   alturaHeader = 48,
   sort,
   grupoSort,
   className,
-  totalLinhas,
-  pushSize = 100,
-  pushSizeCache = 0,
+  sourceData,
   onSelect,
   onSelectCell,
   onSelectRow,
   onRemoveHeader,
   onSortHeader,
   filterFunction,
-  onDataPush,
   innerRef,
 }: GridProps<T, K>) {
+  const [data, setData] = useState(dados);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [scrollTop, setScrollTop] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -62,6 +60,10 @@ export default function Grid<
       setScrollLeft(scrollLeft);
     });
   };
+
+  useEffect(() => {
+    if (dados.length > 0) setData(dados);
+  }, [dados]);
 
   const {
     gridTemplateColumns,
@@ -119,8 +121,19 @@ export default function Grid<
     clientHeight,
     linhas,
     scrollTop,
-    totalLinhas,
+    totalLinhas: sourceData?.totalLinhas,
   });
+
+  useSelect({
+    colunas,
+    data,
+    gridSelect,
+    onSelect,
+    onSelectCell,
+    onSelectRow,
+  });
+
+  useCopy({ colunas, data, gridSelect });
 
   const rowRenderView = () => {
     const elements: React.ReactNode[] = [];
@@ -146,7 +159,7 @@ export default function Grid<
           colunas: colunasView,
           gridRowStart,
           select: gridSelect,
-        }),
+        })
       );
     }
 
@@ -160,103 +173,80 @@ export default function Grid<
     return <NoRow gridRowStart={gridRowStart} />;
   };
 
-  useMousetrap(['ctrl+c', 'command+c'], () => {
-    const valor = window.getSelection()?.toString() ?? '';
-    if (valor !== '') {
-      copy(valor);
-      return;
-    }
-    if (gridSelect != null) {
-      const { idx, rowIdx } = gridSelect;
-      if (rowIdx !== -1) {
-        const d = data[rowIdx][colunas[idx].key];
-        // eslint-disable-next-line @typescript-eslint/no-base-to-string
-        const dt = `${d ?? ''}`;
-        copy(dt);
-      } else {
-        copy(colunas[idx].texto);
-      }
-    }
-  });
-
-  useEffect(() => {
-    if (gridSelect != null) {
-      const { idx, rowIdx } = gridSelect;
-
-      const column = colunas[idx];
-      if (isFunction(onSelect)) {
-        onSelect({
-          column,
-          columns: colunas,
-          rowIdx,
-          data: data[rowIdx]?.[column.key] as K[keyof K] | undefined,
-          rowData: data[rowIdx],
-        });
-      }
-      if (rowIdx !== -1) {
-        if (isFunction(onSelectCell)) {
-          onSelectCell({
-            column,
-            rowIdx,
-            data: data[rowIdx]?.[column.key] as K[keyof K] | undefined,
-          });
-        }
-        if (isFunction(onSelectRow)) {
-          onSelectRow({
-            columns: colunas,
-            rowIdx,
-            rowData: data[rowIdx],
-          });
-        }
-      }
-    }
-  }, [gridSelect]);
+  /* 
+    Tudo particionado
+    interno 
+      load - total
+      load - parcial
+    externo
+  */
 
   useEffect(() => {
     let montado = true;
     async function dataPush() {
-      if (isFunction(onDataPush)) {
-        const last = pushCallHist.current;
-        const max = (totalLinhas ?? 0) / pushSize;
-        const index = data.filter((v) => v !== undefined).length / pushSize;
-        const atual = Math.ceil(rowOverscanEndIdx / pushSize);
-        if (index >= max) {
-          setLoading(false);
-          return;
-        }
-        setLoading(true);
-        if (pushSizeCache === 0) {
-          if (index < atual && last < atual) {
-            if (montado)
-              for (let i = Math.max(index, last); i < atual; i += 1) {
-                if (!montado) break;
+      if (sourceData != null) {
+        const {
+          tipo,
+          dataPush,
+          onPush,
+          tamanhoPage,
+          totalPush,
+          pagesStart,
+          totalLinhas,
+        } = sourceData;
 
-                // eslint-disable-next-line no-await-in-loop
-                await onDataPush(i * pushSize, (i + 1) * pushSize);
-              }
-            if (montado) {
-              pushCallHist.current = atual;
-              setLoading(false);
-            }
-          } else {
+        if (tipo == 'total' && isFunction(dataPush)) {
+          setLoading(true);
+          const data = await dataPush();
+          if (montado) {
+            setData(data);
             setLoading(false);
           }
-        } else {
-          const limite = Math.min(atual + pushSizeCache, max);
+        } else if (
+          tipo == 'page' &&
+          tamanhoPage != null &&
+          isFunction(totalPush) &&
+          isFunction(dataPush)
+        ) {
+          setLoading(true);
 
-          if (index < limite && last < limite) {
-            for (let i = Math.max(index, last); i < limite; i += 1) {
-              if (!montado) break;
+          const total = await totalPush();
+          setData(new Array(total));
 
-              if (pushCallHist.current < i + 1) {
-                pushCallHist.current = i + 1;
-                // eslint-disable-next-line no-await-in-loop
-                await onDataPush(i * pushSize, (i + 1) * pushSize);
-              }
-            }
-            if (montado) setLoading(false);
-          } else {
-            setLoading(false);
+          pushCallHist.current = 0;
+
+          const startPage: number =
+            (pagesStart ?? 0) > 0 ? Number(pagesStart) : total / tamanhoPage;
+
+          pushCallHist.current = startPage;
+          const max = total / tamanhoPage;
+          for (let i = 0; i < Math.min(startPage, max); i++) {
+            if (montado) break;
+            const start = i * tamanhoPage;
+            const end = (i + 1) * tamanhoPage;
+            const dt = await dataPush(start, end);
+            setData((data) => {
+              data.splice(start, tamanhoPage, ...dt);
+              return [...data];
+            });
+          }
+
+          if (montado) setLoading(false);
+        } else if (isFunction(onPush) && tamanhoPage != null) {
+          pushCallHist.current = 0;
+
+          const total = totalLinhas ?? dados.length;
+
+          const startPage: number =
+            (pagesStart ?? 0) > 0 ? Number(pagesStart) : total / tamanhoPage;
+
+          pushCallHist.current = startPage;
+          const max = total / tamanhoPage;
+          for (let i = 0; i < Math.min(startPage, max); i++) {
+            if (montado) break;
+            const start = i * tamanhoPage;
+            const end = (i + 1) * tamanhoPage;
+            await onPush(start, end);
           }
         }
       }
@@ -265,9 +255,80 @@ export default function Grid<
     return () => {
       montado = false;
     };
-  }, [rowOverscanStartIdx, rowOverscanEndIdx]);
+  }, []);
 
-  console.log('loading', loading);
+  useEffect(() => {
+    if (rowOverscanStartIdx == 0) return;
+    let montado = true;
+
+    async function dataPush() {
+      if (sourceData != null) {
+        const { tipo, dataPush, onPush, tamanhoPage, totalPush, totalLinhas } =
+          sourceData;
+
+        if (tipo == 'total') return;
+
+        if (
+          tipo == 'page' &&
+          tamanhoPage != null &&
+          isFunction(totalPush) &&
+          isFunction(dataPush)
+        ) {
+          const total = data.length;
+          const index = pushCallHist.current;
+          const max = total / tamanhoPage;
+
+          const atual = Math.ceil(rowOverscanEndIdx / tamanhoPage);
+
+          if (index >= max || index <= atual) {
+            return;
+          }
+
+          setLoading(true);
+          if (montado)
+            for (let i = index; i < Math.min(atual, max); i++) {
+              if (montado) break;
+              pushCallHist.current = i + 1;
+              const start = i * tamanhoPage;
+              const end = (i + 1) * tamanhoPage;
+              const dt = await dataPush(start, end);
+              setData((data) => {
+                data.splice(start, tamanhoPage, ...dt);
+                return [...data];
+              });
+            }
+          if (montado) setLoading(false);
+        } else if (isFunction(onPush) && tamanhoPage != null) {
+          const total = totalLinhas ?? dados.length;
+
+          const index = pushCallHist.current;
+          const max = total / tamanhoPage;
+
+          const atual = Math.ceil(rowOverscanEndIdx / tamanhoPage);
+
+          if (index >= max || index <= atual) {
+            return;
+          }
+          setLoading(true);
+
+          if (montado)
+            for (let i = index; i < Math.min(atual, max); i++) {
+              if (montado) break;
+              pushCallHist.current = i + 1;
+              const start = i * tamanhoPage;
+              const end = (i + 1) * tamanhoPage;
+              await onPush(start, end);
+            }
+          if (montado) setLoading(false);
+        }
+      }
+    }
+    dataPush();
+
+    return () => {
+      montado = false;
+    };
+  }, [rowOverscanStartIdx, rowOverscanEndIdx]);
 
   const altura =
     gridTemplateEndRows !== '' ? alturaAgregado + 1 : alturaAgregado;

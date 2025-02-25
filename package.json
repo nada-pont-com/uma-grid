@@ -45,6 +45,10 @@
   "name": "@nada.pont.com/uma-grid",
   "author": "Nada.pont.com",
   "module": "dist/uma-grid.esm.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nada-pont-com/uma-grid.git"
+  },
   "private": false,
   "size-limit": [
     {

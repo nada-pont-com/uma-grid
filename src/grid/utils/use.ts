@@ -1,6 +1,13 @@
 /* eslint-disable no-shadow */
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { flushSync } from 'react-dom';
 import mousetrap from 'mousetrap';
 
@@ -16,6 +23,8 @@ import type {
   FiltroValue,
   GridOrdem,
   GridSelect,
+  useCopyProps,
+  useSelectProps,
   ViewAgregadoProps,
   ViewColuna,
   ViewData,
@@ -28,6 +37,7 @@ import {
   renderHeaderDefault,
 } from '../default';
 import isFunction, { isNumber } from './function';
+import copy from 'copy-to-clipboard';
 
 export function useGridDimensions() {
   const gridRef = useRef<HTMLDivElement>(null);
@@ -550,7 +560,10 @@ export function useViewAgregado<
   };
 }
 
-export function useMousetrap(handlerKey: string | string[], handlerCallback: ActionKeyPress){
+export function useMousetrap(
+  handlerKey: string | string[],
+  handlerCallback: ActionKeyPress
+) {
   const actionRef = useRef<ActionKeyPress>(null);
   actionRef.current = handlerCallback;
 
@@ -563,4 +576,66 @@ export function useMousetrap(handlerKey: string | string[], handlerCallback: Act
       mousetrap.unbind(handlerKey);
     };
   }, [handlerKey]);
+}
+
+export function useCopy<
+  T extends Coluna<T, K>,
+  K extends Record<string, unknown> = Record<string, unknown>,
+>({ gridSelect, data, colunas }: useCopyProps<T, K>): void {
+  useMousetrap(['ctrl+c', 'command+c'], () => {
+    const valor = window.getSelection()?.toString() ?? '';
+    if (valor !== '') {
+      copy(valor);
+      return;
+    }
+    if (gridSelect != null) {
+      const { idx, rowIdx } = gridSelect;
+      if (rowIdx !== -1) {
+        const d = data[rowIdx][colunas[idx].key];
+        // eslint-disable-next-line @typescript-eslint/no-base-to-string
+        const dt = `${d ?? ''}`;
+        copy(dt);
+      } else {
+        copy(colunas[idx].texto);
+      }
+    }
+  });
+}
+
+export function useSelect<
+  T extends Coluna<T, K>,
+  K extends Record<string, unknown> = Record<string, unknown>,
+>({ gridSelect, data, colunas, onSelect, onSelectCell, onSelectRow }: useSelectProps<T, K>): void {
+  useEffect(() => {
+    if (gridSelect != null) {
+      const { idx, rowIdx } = gridSelect;
+
+      const column = colunas[idx];
+      if (isFunction(onSelect)) {
+        onSelect({
+          column,
+          columns: colunas,
+          rowIdx,
+          data: data[rowIdx]?.[column.key] as K[keyof K] | undefined,
+          rowData: data[rowIdx],
+        });
+      }
+      if (rowIdx !== -1) {
+        if (isFunction(onSelectCell)) {
+          onSelectCell({
+            column,
+            rowIdx,
+            data: data[rowIdx]?.[column.key] as K[keyof K] | undefined,
+          });
+        }
+        if (isFunction(onSelectRow)) {
+          onSelectRow({
+            columns: colunas,
+            rowIdx,
+            rowData: data[rowIdx],
+          });
+        }
+      }
+    }
+  }, [gridSelect]);
 }

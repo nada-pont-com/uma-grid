@@ -12,7 +12,7 @@ function Componente(){
   ];
   const data: Record<string, unknown>[] = [{'valor': 10}]
 
-  return <Grid data={data} cols={colunas}/>
+  return <Grid data={data} colunas={colunas}/>
 }
 
 ```

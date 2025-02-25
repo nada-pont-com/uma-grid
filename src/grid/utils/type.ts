@@ -50,6 +50,28 @@ export interface ViewAgregadoProps<
   filtravel: boolean;
 }
 
+export interface useCopyProps<
+  T extends Coluna<T, K>,
+  K extends Record<string, unknown> = Record<string, unknown>,
+> {
+  gridSelect: GridSelect | undefined;
+  data: K[];
+  colunas: Array<ColunaProps<T, K> & T>;
+}
+
+export interface useSelectProps<
+  T extends Coluna<T, K>,
+  K extends Record<string, unknown> = Record<string, unknown>,
+> {
+  gridSelect: GridSelect | undefined;
+  data: K[];
+  colunas: Array<ColunaProps<T, K> & T>;
+  onSelectCell?: SelectCellEventHandler<T, K>;
+  onSelectRow?: SelectRowEventHandler<T, K>;
+  onSelect?: SelectEventHandler<T, K>;
+}
+
+
 /* Grid */
 
 export interface InnerRefGridProps {
@@ -57,6 +79,24 @@ export interface InnerRefGridProps {
 }
 
 export type InnerRefGrid = React.RefObject<InnerRefGridProps>;
+
+interface SourceData<K extends Record<string, unknown> = Record<string, unknown>> {
+  tipo: 'page' | 'total', 
+  /** Busca os dados e não atualiza o estado de `data`, controlado de forma externa */
+  onPush?: DataPushEventHandler;
+  /** Utilizado em conjunto com `onPush` */
+  totalLinhas?: number;
+  /** Busca os dados e atualiza o estado de `data` */
+  dataPush?: DataPush<K>;
+  /** Busca o total de Linhas, necessário para usar `dataPush` */
+  totalPush?: TotalDataPush;
+  tamanhoPage?: number;
+  /** Quantidade de Pagina para buscar na inicialização da Grid
+   * 
+   * `Todas` = Qualquer valor diferente de > 0 
+   * */
+  pagesStart?: number;
+}
 
 export interface GridProps<
   T extends Coluna<T, K>,
@@ -67,17 +107,15 @@ export interface GridProps<
   colunas: ColunaGrid<T, K>[];
   alturaLinha?: number;
   alturaHeader?: number;
-  totalLinhas?: number;
-  pushSize?: number;
-  pushSizeCache?: number;
   sort?: boolean;
   grupoSort?: string;
   className?: string;
+  /** Busca de dados Dinamicamente */
+  sourceData?: SourceData<K>,
   onSelectCell?: SelectCellEventHandler<T, K>;
   onSelectRow?: SelectRowEventHandler<T, K>;
   onSelect?: SelectEventHandler<T, K>;
   onRemoveHeader?: RemoveHeaderEventHandler;
-  onDataPush?: DataPushEventHandler;
   onSortHeader?: SortHeaderEventHandler;
   filterFunction?: FiltroFunction<T, K>;
 }
@@ -179,6 +217,13 @@ export type DataPushEventHandler = (
   start?: number | null,
   end?: number | null
 ) => Promise<void>;
+
+export type TotalDataPush = () => Promise<number>;
+
+export type DataPush<K extends Record<string, unknown>> = (
+  start?: number | null,
+  end?: number | null
+) => Promise<K[]>;
 
 /** @param index Map<key = column.key, value = column.idx> */
 export type SortHeaderEventHandler = (index: Map<string, number>) => void;
