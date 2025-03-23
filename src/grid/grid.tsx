@@ -1,4 +1,6 @@
-import React, { CSSProperties, useEffect, useState } from 'react';
+import { type CSSProperties } from 'react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 
 import classNames from 'classnames';
@@ -33,6 +35,10 @@ export default function Grid<
   colunas: cols = [],
   alturaLinha = 36,
   alturaHeader = 48,
+  descricao = false,
+  alturaDescricao = 5,
+  showLoading = false,
+  hierarchy = false,
   sort,
   grupoSort,
   className,
@@ -85,11 +91,20 @@ export default function Grid<
     gridFilterFunction: filterFunction,
   });
 
-  const { filtroAction, linhas } = useViewFiltro<T, K>({
+  const {
+    filtroAction,
+    linhas,
+    length,
+    descricaoAcumuladoByIndex,
+    descricaoIndexByAcumulado,
+  } = useViewFiltro<T, K>({
     data,
     colunas,
     innerRef,
     gridOrdem,
+    descricao,
+    alturaDescricao,
+    hierarchy,
   });
 
   const {
@@ -117,11 +132,16 @@ export default function Grid<
     gridTemplateEndRows,
     pushCallHist,
   } = useViewData({
+    descricaoAcumuladoByIndex,
+    descricaoIndexByAcumulado,
+    descricao,
+    length,
     alturaLinha,
     clientHeight,
     linhas,
     scrollTop,
     totalLinhas: sourceData?.totalLinhas,
+    alturaDescricao,
   });
 
   useSelect({
@@ -167,7 +187,7 @@ export default function Grid<
   };
 
   const noDataRenderView = () => {
-    if (linhas.length > 0) return undefined;
+    if (linhas.length > 0 || loading || showLoading) return undefined;
     const gridRowStart = 2 + (filtravel ? 1 : 0);
 
     return <NoRow gridRowStart={gridRowStart} />;
@@ -183,7 +203,7 @@ export default function Grid<
 
   useEffect(() => {
     let montado = true;
-    async function dataPush() {
+    async function asyncDataPush() {
       if (sourceData != null) {
         const {
           tipo,
@@ -195,15 +215,15 @@ export default function Grid<
           totalLinhas,
         } = sourceData;
 
-        if (tipo == 'total' && isFunction(dataPush)) {
+        if (tipo === 'total' && isFunction(dataPush)) {
           setLoading(true);
-          const data = await dataPush();
+          const dt = await dataPush();
           if (montado) {
-            setData(data);
+            setData(dt);
             setLoading(false);
           }
         } else if (
-          tipo == 'page' &&
+          tipo === 'page' &&
           tamanhoPage != null &&
           isFunction(totalPush) &&
           isFunction(dataPush)
@@ -220,14 +240,15 @@ export default function Grid<
 
           pushCallHist.current = startPage;
           const max = total / tamanhoPage;
-          for (let i = 0; i < Math.min(startPage, max); i++) {
+          for (let i = 0; i < Math.min(startPage, max); i += 1) {
             if (montado) break;
             const start = i * tamanhoPage;
             const end = (i + 1) * tamanhoPage;
+            // eslint-disable-next-line no-await-in-loop
             const dt = await dataPush(start, end);
-            setData((data) => {
-              data.splice(start, tamanhoPage, ...dt);
-              return [...data];
+            setData((dadosData) => {
+              dadosData.splice(start, tamanhoPage, ...dt);
+              return [...dadosData];
             });
           }
 
@@ -242,34 +263,35 @@ export default function Grid<
 
           pushCallHist.current = startPage;
           const max = total / tamanhoPage;
-          for (let i = 0; i < Math.min(startPage, max); i++) {
+          for (let i = 0; i < Math.min(startPage, max); i += 1) {
             if (montado) break;
             const start = i * tamanhoPage;
             const end = (i + 1) * tamanhoPage;
+            // eslint-disable-next-line no-await-in-loop
             await onPush(start, end);
           }
         }
       }
     }
-    dataPush();
+    asyncDataPush();
     return () => {
       montado = false;
     };
   }, []);
 
   useEffect(() => {
-    if (rowOverscanStartIdx == 0) return;
+    if (rowOverscanStartIdx === 0) return () => {};
     let montado = true;
 
-    async function dataPush() {
+    async function asyncDataPush() {
       if (sourceData != null) {
         const { tipo, dataPush, onPush, tamanhoPage, totalPush, totalLinhas } =
           sourceData;
 
-        if (tipo == 'total') return;
+        if (tipo === 'total') return;
 
         if (
-          tipo == 'page' &&
+          tipo === 'page' &&
           tamanhoPage != null &&
           isFunction(totalPush) &&
           isFunction(dataPush)
@@ -286,15 +308,16 @@ export default function Grid<
 
           setLoading(true);
           if (montado)
-            for (let i = index; i < Math.min(atual, max); i++) {
+            for (let i = index; i < Math.min(atual, max); i += 1) {
               if (montado) break;
               pushCallHist.current = i + 1;
               const start = i * tamanhoPage;
               const end = (i + 1) * tamanhoPage;
+              // eslint-disable-next-line no-await-in-loop
               const dt = await dataPush(start, end);
-              setData((data) => {
-                data.splice(start, tamanhoPage, ...dt);
-                return [...data];
+              setData((dadosData) => {
+                dadosData.splice(start, tamanhoPage, ...dt);
+                return [...dadosData];
               });
             }
           if (montado) setLoading(false);
@@ -312,18 +335,19 @@ export default function Grid<
           setLoading(true);
 
           if (montado)
-            for (let i = index; i < Math.min(atual, max); i++) {
+            for (let i = index; i < Math.min(atual, max); i += 1) {
               if (montado) break;
               pushCallHist.current = i + 1;
               const start = i * tamanhoPage;
               const end = (i + 1) * tamanhoPage;
+              // eslint-disable-next-line no-await-in-loop
               await onPush(start, end);
             }
           if (montado) setLoading(false);
         }
       }
     }
-    dataPush();
+    asyncDataPush();
 
     return () => {
       montado = false;
@@ -353,7 +377,7 @@ export default function Grid<
       className={classNames('grid-table', className)}
     >
       <ElementResizeListener onResize={onResize} />
-      <Loading altura={altura} loading={loading} />
+      <Loading altura={altura} loading={loading || showLoading} />
       <HeaderRender<T, K>
         colunas={colunasView}
         sort={sort}

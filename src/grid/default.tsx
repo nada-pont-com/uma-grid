@@ -1,10 +1,10 @@
+import { type JSX } from 'react';
 import type {
   AgregadoFunctionProps,
   ColunaCellRenderProps,
   ColunaHeaderRenderProps,
   FiltroFunctionProps,
 } from './utils/type';
-import { JSX } from 'react';
 
 export function removerAcentos(texto: string) {
   return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '');

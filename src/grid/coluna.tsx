@@ -1,14 +1,17 @@
-import { CSSProperties, memo } from 'react';
+import { type CSSProperties } from 'react';
 import classNames from 'classnames';
 
-import type { ColunaRenderProps } from './utils/type';
+import type { ColunaRenderProps, Data } from './utils/type';
+import isFunction, { withMemo } from './utils/function';
 
-export default function Coluna<T, K extends Record<string, unknown>>({
+export default function Coluna<T, K extends Data>({
   column,
   idx,
   row,
   rowIdx,
   select,
+  hierarchy,
+  descricao,
 }: ColunaRenderProps<T, K>) {
   const { fixa } = column;
 
@@ -18,7 +21,8 @@ export default function Coluna<T, K extends Record<string, unknown>>({
 
   const style: CSSProperties = {
     gridColumn: `${idx + 1} / ${idx + 2}`,
-  };
+    '--grid-cell-hierarchy-margin': idx === 0 && row.nivel,
+  } as unknown as CSSProperties;
 
   if (fixa) style.insetInlineStart = `var(--grid-init-left-${idx + 1})`;
 
@@ -32,16 +36,44 @@ export default function Coluna<T, K extends Record<string, unknown>>({
         'grid-col-select': select?.idx === idx,
       })}
       style={style}
-      onClick={() => {
-        column.select({
-          rowIdx,
-          column,
-        });
+      onClick={(e) => {
+        if (
+          !(e.target as HTMLElement).classList.contains(
+            'simple-icon-arrow-right'
+          )
+        ) {
+          column.select({
+            rowIdx,
+            column,
+          });
+        }
       }}
     >
+      {(hierarchy || descricao) && idx === 0 && (
+        <div
+          className={classNames('d-flex grid-cell-collapse rotate-arrow-icon', {
+            collapse: row?.hierarchy || row?.hasDescricao,
+          })}
+          aria-hidden
+          onClick={() => {
+            if (
+              hierarchy &&
+              isFunction(row?.updateHierarchy) &&
+              row?.id != null
+            ) {
+              row.updateHierarchy(row.id);
+            }
+            if (descricao && isFunction(row?.updateDescricao)) {
+              row.updateDescricao();
+            }
+          }}
+        >
+          <i className="simple-icon-arrow-down d-flex" />
+        </div>
+      )}
       <Tag column={column} row={row} rowIdx={rowIdx} />
     </div>
   );
 }
 
-export const ColunaRender = memo(Coluna) as typeof Coluna;
+export const ColunaRender = withMemo(Coluna);

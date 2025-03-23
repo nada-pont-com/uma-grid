@@ -1,26 +1,21 @@
-import React, { CSSProperties } from 'react';
+import { type CSSProperties } from 'react';
+import type React from 'react';
 
 import { ColunaRender } from './coluna';
-import type { ColunaProps, GridSelect } from './utils/type';
+import type { Data, DescricaoRenderProps, RowRenderProps } from './utils/type';
 import { withMemo } from './utils/function';
 
-interface Props<T, K extends Record<string, unknown>> {
-  rowIdx: number;
-  row: K;
-  colunas: Array<ColunaProps<T, K> & T>;
-  gridRowStart: number;
-  select?: GridSelect;
-  // gridTemplateColumns: string;
-}
-
-function Row<T, K extends Record<string, unknown>>({
+function Row<T, K extends Data>({
   rowIdx,
   row,
   colunas,
   gridRowStart,
   select,
-}: Props<T, K>) {
+  descricao = false,
+}: RowRenderProps<T, K>) {
   const cells = [];
+  const haveChildren = (row.rowIndexChildrens?.size ?? 0) > 0;
+  const haveParent = row.rowIndexParent != null;
 
   for (let index = 0; index < colunas.length; index += 1) {
     const column = colunas[index];
@@ -39,7 +34,10 @@ function Row<T, K extends Record<string, unknown>>({
         idx={idx}
         rowIdx={rowIdx}
         select={select}
-      />,
+        haveParent={haveParent}
+        hierarchy={haveChildren}
+        descricao={descricao}
+      />
     );
   }
 
@@ -87,12 +85,51 @@ function NoRowRender({ gridRowStart }: NoRowProps) {
 
 const RowDefault = withMemo(Row);
 
-
 export const NoRow = withMemo(NoRowRender);
 
 export default function renderRow<T, K extends Record<string, unknown>>(
   key: React.Key,
-  props: Props<T, K>,
+  props: RowRenderProps<T, K>
 ) {
   return <RowDefault<T, K> key={`linha_${key}`} {...props} />;
+}
+
+function Descricao<T, K extends Data>({
+  row,
+  gridRowStart,
+  colunas,
+  rowIdx,
+  descricaoRender,
+  hide = false,
+}: DescricaoRenderProps<T, K>) {
+  const Tag = descricaoRender ?? (() => undefined);
+
+  if (hide) return <div className="grid-row" />;
+
+  return (
+    <div
+      className="grid-row"
+      style={
+        {
+          '--grid-row-start': `${gridRowStart}`.split('/')[0],
+          '--grid-row-end': `${gridRowStart}`.split('/')[1],
+        } as unknown as CSSProperties
+      }
+    >
+      <div role="cell" aria-hidden className="grid-cell grid-cell-descricao">
+        <div aria-hidden className="grid-cell-descricao-conteudo">
+          <Tag columns={colunas} row={row} rowIdx={rowIdx} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const DescricaoDefault = withMemo(Descricao);
+
+export function renderDescricao<T, K extends Data>(
+  key: React.Key,
+  props: DescricaoRenderProps<T, K>
+) {
+  return <DescricaoDefault<T, K> key={`linha_${key}`} {...props} />;
 }

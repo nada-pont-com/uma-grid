@@ -11,7 +11,8 @@ import {
 import { flushSync } from 'react-dom';
 import mousetrap from 'mousetrap';
 
-import { delay } from './function';
+import copy from 'copy-to-clipboard';
+import isFunction, { delay, isNumber } from './function';
 
 import type {
   ActionKeyPress,
@@ -19,8 +20,10 @@ import type {
   Coluna,
   ColunaBruta,
   ColunaProps,
+  Data,
   FiltroActionHandler,
   FiltroValue,
+  GridNivelType,
   GridOrdem,
   GridSelect,
   useCopyProps,
@@ -36,8 +39,6 @@ import {
   renderDefault,
   renderHeaderDefault,
 } from '../default';
-import isFunction, { isNumber } from './function';
-import copy from 'copy-to-clipboard';
 
 export function useGridDimensions() {
   const gridRef = useRef<HTMLDivElement>(null);
@@ -88,9 +89,20 @@ export function useGridDimensions() {
 
 export function useViewFiltro<
   T extends Coluna<T, K> = ColunaBruta,
-  K extends Record<string, unknown> = Record<string, unknown>,
->({ data, colunas, innerRef, gridOrdem }: ViewFiltroProps<T, K>) {
+  K extends Data = Data,
+>({
+  data,
+  colunas,
+  innerRef,
+  gridOrdem,
+  hierarchy,
+  descricao = false,
+  alturaDescricao = 1,
+}: ViewFiltroProps<T, K>) {
   const [filtroData, setFiltroData] = useState<Record<string, FiltroValue>>({});
+  const [updateData, setUpdateData] = useState<boolean>(false);
+
+  const hideChildrenList = useRef<Set<number | string>>(new Set());
 
   const { action } = useMemo(() => {
     const index = {};
@@ -125,8 +137,96 @@ export function useViewFiltro<
     return { index, action };
   }, [data]);
 
-  const { linhas } = useMemo(() => {
+  const {
+    parentIndexById,
+    parentIdByRoot,
+    parentToChild,
+    childToParent,
+    buildChildToRoot,
+  } = useMemo(() => {
+    const parentIndexById: Record<string | number, number> = {};
+    const parentIdByRoot: Record<number | string, Set<string | number>> = {};
+    const parentToChild: Record<string, Set<number>> = {};
+    const childToParent: Record<string | number, string | number> = {};
+
+    if (hierarchy) {
+      data.forEach((row, index) => {
+        const { root, id } = row ?? {};
+        if (id == null) {
+          return;
+        }
+
+        if (root != null) {
+          parentToChild[root] ??= new Set();
+
+          parentToChild[root].add(index);
+
+          childToParent[id] = root;
+          parentIdByRoot[root] ??= new Set();
+          parentIdByRoot[root].add(id);
+        }
+
+        parentIndexById[id] = index;
+      });
+    }
+
+    const buildChildToRoot = (
+      id: string | number | undefined | null
+    ): Array<string | number> => {
+      if (id == null) {
+        return [];
+      }
+      const parentId = childToParent[id];
+
+      if (parentId == null) return [id];
+
+      const list = buildChildToRoot(parentId);
+      list.push(id);
+
+      return list;
+    };
+
+    return {
+      parentIndexById,
+      parentIdByRoot,
+      parentToChild,
+      childToParent,
+      buildChildToRoot,
+    };
+  }, [data, data.length]);
+
+  const nivelById = useMemo(() => {
+    const obj: Record<number | string, Partial<GridNivelType>> = {};
+    Object.keys(parentToChild).forEach((id) => {
+      const filhos = parentIdByRoot[id]; // verrifica se tem filho
+      const pai = childToParent[id]; // verrifica se tem pai
+
+      let objPai: Partial<GridNivelType> | null = null;
+
+      if (pai != null) {
+        obj[pai] ??= { nivel: 0 };
+        objPai = obj[pai];
+      }
+
+      const nivel = pai == null ? 0 : (objPai?.nivel ?? 0) + 1;
+
+      filhos?.forEach((filho) => {
+        obj[filho] ??= { nivel: nivel + 1, pai: id };
+        const objFilho = obj[filho];
+        objFilho.nivel = nivel + 1;
+      });
+
+      obj[id] ??= {};
+      obj[id].pai = pai;
+      obj[id].nivel = nivel;
+    });
+    return obj;
+  }, [parentIdByRoot, childToParent]);
+
+  const { linhas, length } = useMemo(() => {
     const linhas: K[] = [];
+    let length = 0;
+
     data.forEach((row, index) => {
       let valido = true;
       colunas.forEach((coluna) => {
@@ -135,7 +235,10 @@ export function useViewFiltro<
 
         if (filtro == null || filtro === '') return;
 
-        const value = row[key] as K[keyof K];
+        // if (row == null || !(key in row) || row[key] == null) return;
+        // if (row[key] == null) return;
+
+        const value = row?.[key] as K[keyof K];
 
         valido =
           filterFunction({
@@ -147,18 +250,119 @@ export function useViewFiltro<
           }) && valido;
       });
 
-      if (valido) linhas.push({ ...row, rowIdxOriginal: index });
+      if (valido) {
+        length += 1;
+
+        const linhaData: K = {
+          ...row,
+          rowIdxOriginal: index,
+        };
+
+        if (hierarchy) {
+          if (hideChildrenList.current.size > 0) {
+            const allParents = buildChildToRoot(row?.root);
+
+            if (allParents.some((item) => hideChildrenList.current.has(item))) {
+              length -= 1;
+              return;
+            }
+          }
+
+          linhaData.updateHierarchy = function updateHierarchy() {
+            if (row.id == null) {
+              return;
+            }
+            // eslint-disable-next-line no-param-reassign
+            row.hierarchy = !this?.hierarchy;
+            if (hideChildrenList.current.has(row.id)) {
+              hideChildrenList.current.delete(row.id);
+            } else {
+              hideChildrenList.current.add(row.id);
+            }
+            setUpdateData((u) => !u);
+          };
+
+          if (row.id != null) {
+            linhaData.nivel = nivelById[row.id]?.nivel;
+            linhaData.rowIndexChildrens = parentToChild[row.id];
+          }
+          if (row.root != null) {
+            linhaData.rowIndexParent = parentIndexById[row.root];
+          }
+        }
+
+        if (descricao) {
+          linhaData.updateDescricao = function updateDescricao() {
+            // eslint-disable-next-line no-param-reassign
+            row.hasDescricao = !this?.hasDescricao;
+            setUpdateData((u) => !u);
+          };
+
+          if (row?.hasDescricao) {
+            length += alturaDescricao;
+          }
+        }
+
+        linhas.push(linhaData);
+      }
     });
 
-    return { linhas };
-  }, [filtroData, data, gridOrdem]);
+    return {
+      linhas,
+      length,
+    };
+  }, [filtroData, data, gridOrdem, updateData]);
 
   const { linhasOrdenadas } = useMemo(() => {
-    const linhasOrdenadas: K[] = linhas.sort((a, b) => {
-      const { asc, key } = gridOrdem;
+    const dataByHierarchy = (
+      rootA: string | number | undefined | null,
+      rootB: string | number | undefined | null,
+      dados: K
+    ) => {
+      if (hierarchy && rootA != null && rootA !== rootB && dados.id !== rootB) {
+        const item = data[parentIndexById[rootA]];
+        if (item.root != null) {
+          return dataByHierarchy(item.root, rootB, item);
+        }
+        return item;
+      }
 
-      const A = asc ? b[key] : a[key];
-      const B = !asc ? b[key] : a[key];
+      return dados;
+    };
+
+    const linhasOrdenadas: K[] = linhas.sort((a, b) => {
+      const { asc, key, ordem } = gridOrdem;
+
+      const dataA = dataByHierarchy(a.root, b.root, a);
+      const dataB = dataByHierarchy(b.root, a.root, b);
+
+      const A = asc ? dataB[key] : dataA[key];
+      const B = asc ? dataA[key] : dataB[key];
+
+      if (hierarchy) {
+        if (a.id !== dataA.id && dataA.id === dataB.id) {
+          return 1;
+        }
+
+        if (b.id !== dataB.id && dataA.id === dataB.id) {
+          return -1;
+        }
+
+        if (dataA[key] === dataB[key]) {
+          return asc
+            ? parentIndexById[dataB.id ?? ''] - parentIndexById[dataA.id ?? '']
+            : parentIndexById[dataA.id ?? ''] - parentIndexById[dataB.id ?? ''];
+        }
+      }
+
+      if (isFunction(ordem)) {
+        return ordem({
+          asc,
+          key,
+          a: dataA,
+          b: dataB,
+        });
+      }
 
       if (isNumber(A) && isNumber(B)) {
         return A - B;
@@ -179,22 +383,68 @@ export function useViewFiltro<
     return { linhasOrdenadas };
   }, [linhas]);
 
+  const { descricaoAcumuladoByIndex, descricaoIndexByAcumulado } =
+    useMemo(() => {
+      let acumuloIndex = 0;
+      let acumulo = 0;
+      const descricaoIndexByAcumulado: Record<number, number> = {};
+      const descricaoAcumuladoByIndex: Record<number, number> = {};
+      if (descricao && linhas.length !== length) {
+        linhasOrdenadas.forEach(({ hasDescricao }, index) => {
+          descricaoIndexByAcumulado[acumuloIndex] = index;
+          descricaoAcumuladoByIndex[index] = acumulo;
+
+          if (hasDescricao) {
+            for (let i = 1; i <= alturaDescricao; i += 1) {
+              descricaoIndexByAcumulado[acumuloIndex + i] = index;
+            }
+            acumulo += alturaDescricao;
+            acumuloIndex += alturaDescricao;
+          }
+          acumuloIndex += 1;
+        });
+      }
+      return { descricaoAcumuladoByIndex, descricaoIndexByAcumulado };
+    }, [linhasOrdenadas]);
+
   return {
     linhas: linhasOrdenadas,
+    parentToChild,
     filtroData,
     filtroAction: action,
+    descricaoAcumuladoByIndex,
+    descricaoIndexByAcumulado,
+    length,
   };
 }
 
-export function useViewData<K extends Record<string, unknown>>({
+export function useViewData<K extends Data>({
   scrollTop,
   linhas,
   alturaLinha,
   totalLinhas,
   clientHeight,
+  descricao,
+  length = 0,
+  descricaoAcumuladoByIndex = {},
+  descricaoIndexByAcumulado = {},
 }: ViewData<K>) {
   const pushCallHist = useRef<number>(0);
   const total = (totalLinhas ?? linhas.length) - 1;
+
+  const gridTemplateRowsExtra = useMemo(() => {
+    if (descricao) {
+      let template = '';
+      const totalItens = total + 1;
+      const quantidade = length - totalItens;
+
+      if (quantidade !== 0 && length !== 0) {
+        template = `repeat(${quantidade}, ${alturaLinha}px)`;
+      }
+      return { default: `repeat(${totalItens}, ${0}px) `, template };
+    }
+    return { default: '', template: '' };
+  }, [length, total]);
 
   const {
     findRowIdx,
@@ -205,22 +455,49 @@ export function useViewData<K extends Record<string, unknown>>({
   } = useMemo(() => {
     return {
       totalLinhaAltura: alturaLinha * (total + 1),
-      gridTemplateRows:
+      gridTemplateRows: `${
         total + 1 === 0
           ? `repeat(1, ${clientHeight}px)`
-          : `repeat(${total + 1}, ${alturaLinha}px)`,
+          : `repeat(${total + 1}, ${alturaLinha}px)`
+      } ${gridTemplateRowsExtra.template}`,
       getRowTop: (rowIdx: number) => rowIdx * alturaLinha,
       getRowHeight: () => alturaLinha,
       findRowIdx: (offset: number) => Math.floor(offset / alturaLinha),
     };
-  }, [linhas, alturaLinha, clientHeight, total]);
+  }, [
+    linhas.length,
+    alturaLinha,
+    clientHeight,
+    total,
+    gridTemplateRowsExtra.template,
+  ]);
 
   let rowOverscanStartIdx = 0;
   let rowOverscanEndIdx = total;
   const overscanThreshold = 4;
   const rowVisibleStartIdx = findRowIdx(scrollTop);
+
   const rowVisibleEndIdx = findRowIdx(scrollTop + clientHeight);
-  rowOverscanStartIdx = Math.max(0, rowVisibleStartIdx - overscanThreshold);
+  rowOverscanStartIdx = Math.min(
+    total + 1,
+    Math.max(0, rowVisibleStartIdx - overscanThreshold)
+  );
+
+  let descricaoDeslocamentoAcumulado = 0;
+
+  const descricaoDeslocamentoAcumuladoIndex =
+    descricaoIndexByAcumulado[rowOverscanStartIdx];
+
+  if (descricaoDeslocamentoAcumuladoIndex != null) {
+    rowOverscanStartIdx = Math.max(
+      0,
+      descricaoDeslocamentoAcumuladoIndex - overscanThreshold
+    );
+
+    descricaoDeslocamentoAcumulado =
+      descricaoAcumuladoByIndex[rowOverscanStartIdx];
+  }
+
   rowOverscanEndIdx = Math.min(total, rowVisibleEndIdx + overscanThreshold);
 
   const gridTemplateEndRows = useMemo(() => {
@@ -242,26 +519,29 @@ export function useViewData<K extends Record<string, unknown>>({
     getRowTop,
     getRowHeight,
     findRowIdx,
+    gridTemplateRowsExtra,
+    descricaoDeslocamentoAcumulado,
   };
 }
 
-export function useViewColumn<
-  T extends Coluna<T, K>,
-  K extends Record<string, unknown> = Record<string, unknown>,
->({
+export function useViewColumn<T extends Coluna<T, K>, K extends Data = Data>({
   scrollLeft,
   gridWidth,
   colunasBruta,
   onSortHeader,
   alturaHeader,
+  gridOrdemDefault,
   gridFilterFunction,
   gridFilter = false,
 }: ViewColuna<T, K>) {
   const [select, setSelect] = useState<GridSelect>();
-  const [gridOrdem, setGridOrdem] = useState<GridOrdem>({
-    key: colunasBruta?.[0]?.key ?? '',
-    asc: true,
-  });
+  const [gridOrdem, setGridOrdem] = useState<GridOrdem<K>>(
+    gridOrdemDefault ?? {
+      key: colunasBruta?.[0]?.key ?? '',
+      asc: true,
+      ordem: colunasBruta?.[0]?.orderFunction,
+    }
+  );
   const [ordem, setOrdem] = useState<boolean>();
 
   const { cols, updateOrdem, filtravel, gridTemplateRowHeader, fixaCount } =
@@ -305,9 +585,17 @@ export function useViewColumn<
             setGridOrdem((prev) => {
               if (column.order ?? true) {
                 if (prev?.key === column.key) {
-                  return { key: column.key, asc: !prev.asc };
+                  return {
+                    key: column.key,
+                    asc: !prev.asc,
+                    ordem: column.orderFunction,
+                  };
                 }
-                return { key: column.key, asc: false };
+                return {
+                  key: column.key,
+                  asc: false,
+                  ordem: column.orderFunction,
+                };
               }
               return prev;
             });
@@ -476,10 +764,7 @@ export function useViewColumn<
   };
 }
 
-export function useViewAgregado<
-  T extends Coluna<T, K>,
-  K extends Record<string, unknown> = Record<string, unknown>,
->({
+export function useViewAgregado<T extends Coluna<T, K>, K extends Data = Data>({
   colunas,
   linhas,
   colOverscanStartIdx,
@@ -578,10 +863,11 @@ export function useMousetrap(
   }, [handlerKey]);
 }
 
-export function useCopy<
-  T extends Coluna<T, K>,
-  K extends Record<string, unknown> = Record<string, unknown>,
->({ gridSelect, data, colunas }: useCopyProps<T, K>): void {
+export function useCopy<T extends Coluna<T, K>, K extends Data = Data>({
+  gridSelect,
+  data,
+  colunas,
+}: useCopyProps<T, K>): void {
   useMousetrap(['ctrl+c', 'command+c'], () => {
     const valor = window.getSelection()?.toString() ?? '';
     if (valor !== '') {
@@ -602,10 +888,14 @@ export function useCopy<
   });
 }
 
-export function useSelect<
-  T extends Coluna<T, K>,
-  K extends Record<string, unknown> = Record<string, unknown>,
->({ gridSelect, data, colunas, onSelect, onSelectCell, onSelectRow }: useSelectProps<T, K>): void {
+export function useSelect<T extends Coluna<T, K>, K extends Data = Data>({
+  gridSelect,
+  data,
+  colunas,
+  onSelect,
+  onSelectCell,
+  onSelectRow,
+}: useSelectProps<T, K>): void {
   useEffect(() => {
     if (gridSelect != null) {
       const { idx, rowIdx } = gridSelect;
