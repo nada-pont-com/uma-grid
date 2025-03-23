@@ -1,4 +1,4 @@
-import React, { JSX } from "react";
+import React, { type JSX } from 'react';
 
 export default function isFunction<T = undefined>(f: T | undefined): f is T {
   return typeof f === 'function';
@@ -9,9 +9,11 @@ export function isNumber(f: unknown | undefined): f is number {
 }
 
 export const delay = (ms: number) => {
-  return new Promise((res) => setTimeout(res, ms));
+  return new Promise((res) => {
+    setTimeout(res, ms);
+  });
 };
 
-export const withMemo = <K,>(
-  Component: (props: K) => JSX.Element
-) => React.memo(Component) as (props: K) => JSX.Element;
+export const withMemo = <K>(
+  Component: (props: K) => JSX.Element | JSX.Element[]
+) => React.memo(Component) as (props: K) => JSX.Element | JSX.Element[];

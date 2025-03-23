@@ -27,6 +27,7 @@ export interface ViewColuna<
   gridWidth: number;
   gridFilter?: boolean;
   gridOrdemDefault?: GridOrdem<K>;
+  grupos?: ColunaGrupo[];
   onSortHeader?: SortHeaderEventHandler;
   gridFilterFunction?: FiltroFunction<T, K>;
 }
@@ -115,6 +116,7 @@ export interface GridProps<T extends Coluna<T, K>, K extends Data = Data> {
   alturaLinha?: number;
   alturaHeader?: number;
   sort?: boolean;
+  grupos?: ColunaGrupo[];
   showLoading?: boolean;
   descricao?: boolean;
   alturaDescricao?: number;
@@ -173,9 +175,24 @@ export interface ColunaEvents<
   agregadoresRender?: AgregadoFunction<T, K, key>;
 }
 
+export interface ColunaGrupo {
+  texto: string;
+  key: string;
+  grupo?: string;
+}
+
+export interface ColunaGrupoProps<T = ColunaBruta, K extends Data = Data>
+  extends ColunaGrupo,
+    ItemInterface {
+  colunas: Array<(ColunaProps<T, K> & T) | ColunaGrupoProps<T, K>>;
+  idx: number;
+  tipo: 'grupo';
+}
+
 export interface ColunaBruta {
   key: string;
   texto: string;
+  grupo?: string;
   // renderHeader?: (props: ColunaHeaderRender<T>) => JSX.Element | string | null;
   // render?: (props: ColunaCellRender<T>) => JSX.Element | null;
   height?: number | string;
@@ -192,6 +209,7 @@ export interface ColunaProps<T = ColunaBruta, K extends Data = Data>
     ColunaEvents<T, K>,
     ItemInterface {
   idx: number;
+  tipo: 'coluna';
   render: RenderHandler<T, K>;
   renderHeader: RenderHeaderHandler<T, K>;
   ordenar: OrdenarHandler<T, K>;
@@ -216,9 +234,10 @@ export interface AgragadoProps<
 /* Header */
 
 export interface HeadersProps<T, K extends Data = Data> {
-  colunas: Array<ColunaProps<T, K> & T>;
+  colunas: Array<(ColunaProps<T, K> & T) | ColunaGrupoProps<T, K>>;
   sort?: boolean;
   group?: string;
+  // grupos?: Record<string, ColunaGrupo>;
   updateOrdem?: (oldIndex: number, newIndex: number) => void;
   onRemoveHeader?: RemoveHeaderEventHandler;
   select?: GridSelect;
@@ -364,7 +383,7 @@ export interface FiltroProps<T, K extends Data> {
 export interface RowRenderProps<T, K extends Data> {
   rowIdx: number;
   row: K;
-  colunas: Array<ColunaProps<T, K> & T>;
+  colunas: Array<(ColunaProps<T, K> & T) | ColunaGrupoProps<T, K>>;
   gridRowStart: number | `${number}/${number}`;
   select?: GridSelect;
   descricao?: boolean;
@@ -393,8 +412,25 @@ export interface ColunaRenderProps<T, K extends Data> {
   descricao: boolean;
 }
 
+export interface ColunaGrupoRenderProps<T, K extends Data> {
+  grupo: ColunaGrupoProps<T, K>;
+  rowIdx: number;
+  row: K;
+  select?: GridSelect;
+  hierarchy?: boolean;
+  haveParent?: boolean;
+  descricao: boolean;
+}
+
 export interface HeaderRenderProps<T, K extends Data> {
   column: ColunaProps<T, K> & T;
+  idx: number;
+  select?: GridSelect;
+}
+
+export interface HeaderGrupoRenderProps<T, K extends Data> {
+  colunas: Array<(ColunaProps<T, K> & T) | ColunaGrupoProps<T, K>>;
+  grupo: ColunaGrupoProps<T, K>;
   idx: number;
   select?: GridSelect;
 }

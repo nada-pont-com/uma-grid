@@ -1,8 +1,12 @@
-import { CSSProperties } from 'react';
+import { type CSSProperties } from 'react';
 import { ReactSortable } from 'react-sortablejs';
 import classNames from 'classnames';
 
-import type { HeaderRenderProps, HeadersProps } from './utils/type';
+import type {
+  HeaderGrupoRenderProps,
+  HeaderRenderProps,
+  HeadersProps,
+} from './utils/type';
 import isFunction, { withMemo } from './utils/function';
 
 export function Coluna<T, K extends Record<string, unknown>>({
@@ -47,6 +51,75 @@ export function Coluna<T, K extends Record<string, unknown>>({
   );
 }
 
+export function Grupo<T, K extends Record<string, unknown>>({
+  colunas,
+  grupo,
+  idx,
+  select,
+}: HeaderGrupoRenderProps<T, K>) {
+  const cells = [];
+
+  const { key } = grupo;
+  const props = { idx, headerid: key };
+
+  for (let index = 0; index < colunas.length; index += 1) {
+    const column = colunas[index];
+    if (column.tipo === 'coluna') {
+      // const { idx, key } = column;
+      cells.push(
+        <ColunaDefault<T, K>
+          key={column.key}
+          column={column}
+          idx={column.idx}
+          select={select}
+        />
+      );
+    } else {
+      const { colunas: cols } = column;
+      cells.push(
+        <GrupoDefault<T, K>
+          key={column.key}
+          colunas={cols}
+          grupo={column}
+          idx={column.idx}
+          select={select}
+        />
+      );
+    }
+  }
+
+  const varsCss: Record<string, unknown> = {
+    '--grid-column': `${idx + 1} / ${idx + 1 + colunas.length}`,
+  };
+
+  const style: CSSProperties = {
+    ...varsCss,
+  };
+
+  // if (fixa) style.insetInlineStart = `var(--grid-init-left-${idx + 1})`;
+
+  return (
+    <div
+      {...props}
+      role="cell"
+      aria-hidden
+      style={style}
+      className={classNames('grid-header grid-header-grupo', {
+        // 'grid-cell-fixa': fixa,
+        'grid-cell-select': select?.idx === idx && select.rowIdx === -1,
+        'grid-col-select': select?.idx === idx,
+      })}
+      onClick={() => {
+        // column.selectHeader({
+        //   column,
+        // });
+      }}
+    >
+      {cells}
+    </div>
+  );
+}
+
 function HeaderSort<T, K extends Record<string, unknown>>({
   colunas,
   updateOrdem,
@@ -58,15 +131,28 @@ function HeaderSort<T, K extends Record<string, unknown>>({
 
   for (let index = 0; index < colunas.length; index += 1) {
     const column = colunas[index];
-    const { idx, key } = column;
-    cells.push(
-      <ColunaDefault<T, K>
-        key={key}
-        column={column}
-        idx={idx}
-        select={select}
-      />,
-    );
+    if (column.tipo === 'coluna') {
+      const { idx, key } = column;
+      cells.push(
+        <ColunaDefault<T, K>
+          key={key}
+          column={column}
+          idx={idx}
+          select={select}
+        />
+      );
+    } else {
+      const { idx, key, colunas: cols } = column;
+      cells.push(
+        <GrupoDefault<T, K>
+          key={key}
+          colunas={cols}
+          grupo={column}
+          idx={idx}
+          select={select}
+        />
+      );
+    }
   }
 
   return (
@@ -97,7 +183,7 @@ function HeaderSort<T, K extends Record<string, unknown>>({
         ) {
           updateOrdem(
             Number(evt.dragged.getAttribute('idx')),
-            Number(evt.related.getAttribute('idx')),
+            Number(evt.related.getAttribute('idx'))
           );
         }
         return true;
@@ -116,15 +202,28 @@ export default function Header<T, K extends Record<string, unknown>>({
 
   for (let index = 0; index < colunas.length; index += 1) {
     const column = colunas[index];
-    const { idx, key } = column;
-    cells.push(
-      <ColunaDefault<T, K>
-        key={key}
-        column={column}
-        idx={idx}
-        select={select}
-      />,
-    );
+    if (column.tipo === 'coluna') {
+      const { idx, key } = column;
+      cells.push(
+        <ColunaDefault<T, K>
+          key={key}
+          column={column}
+          idx={idx}
+          select={select}
+        />
+      );
+    } else {
+      const { idx, key, colunas: cols } = column;
+      cells.push(
+        <GrupoDefault<T, K>
+          key={key}
+          colunas={cols}
+          grupo={column}
+          idx={idx}
+          select={select}
+        />
+      );
+    }
   }
 
   return (
@@ -141,9 +240,9 @@ export default function Header<T, K extends Record<string, unknown>>({
   );
 }
 
-
 const HeaderDefault = withMemo(Header);
 const ColunaDefault = withMemo(Coluna);
+const GrupoDefault = withMemo(Grupo);
 const HeaderSortDefault = withMemo(HeaderSort);
 
 export function HeaderRender<

@@ -527,6 +527,7 @@ export function useViewData<K extends Data>({
 export function useViewColumn<T extends Coluna<T, K>, K extends Data = Data>({
   scrollLeft,
   gridWidth,
+  grupos,
   colunasBruta,
   onSortHeader,
   alturaHeader,
@@ -544,17 +545,21 @@ export function useViewColumn<T extends Coluna<T, K>, K extends Data = Data>({
   );
   const [ordem, setOrdem] = useState<boolean>();
 
+  console.log(grupos);
+
   const { cols, updateOrdem, filtravel, gridTemplateRowHeader, fixaCount } =
     useMemo(() => {
       const colunas: Array<ColunaProps<T, K> & T> = [];
+      const grupoIndex: Record<string, number> = {};
+
       let filtravel = gridFilter;
       let fixaCount = 0;
 
-      colunasBruta.forEach((props) => {
+      colunasBruta.forEach((props, index) => {
         filtravel = props.filtravel || filtravel;
 
-        const renderHeader = props.renderHeader ?? renderHeaderDefault<T, K>;
-        const render = props.render ?? renderDefault<T, K>;
+        const renderHeader = props.renderHeader ?? renderHeaderDefault;
+        const render = props.render ?? renderDefault;
         const filterFunction =
           props.filterFunction ??
           gridFilterFunction ??
@@ -563,10 +568,15 @@ export function useViewColumn<T extends Coluna<T, K>, K extends Data = Data>({
         const agregadoresRender =
           props.agregadoresRender ?? renderAgregadoDefault;
 
+        if (props.grupo != null) {
+          grupoIndex[props.grupo] = index;
+        }
+
         if (props.fixa) fixaCount += 1;
 
         colunas.push({
           ...props,
+          tipo: 'coluna',
           filtravel: props.filtravel ?? gridFilter,
           id: props.key,
           idx: 0,
@@ -615,6 +625,9 @@ export function useViewColumn<T extends Coluna<T, K>, K extends Data = Data>({
           if (b.fixa && a.fixa) return 0;
           if (b.fixa) return 1;
           if (a.fixa) return -1;
+          if (a.grupo != null && b.grupo != null) {
+            return grupoIndex[a.grupo] - grupoIndex[b.grupo];
+          }
           return 0;
         })
         .forEach((coluna, index) => {

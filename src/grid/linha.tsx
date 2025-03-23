@@ -1,7 +1,7 @@
 import { type CSSProperties } from 'react';
 import type React from 'react';
 
-import { ColunaRender } from './coluna';
+import { ColunaGrupoRender, ColunaRender } from './coluna';
 import type { Data, DescricaoRenderProps, RowRenderProps } from './utils/type';
 import { withMemo } from './utils/function';
 
@@ -19,26 +19,40 @@ function Row<T, K extends Data>({
 
   for (let index = 0; index < colunas.length; index += 1) {
     const column = colunas[index];
-    // eslint-disable-next-line no-unused-vars
-    const { idx } = column;
-    // const colSpan = getColSpan(column, lastFrozenColumnIndex, { type: 'ROW', row });
-    // if (colSpan !== undefined) {
-    //   index += colSpan - 1;
-    // }
 
-    cells.push(
-      <ColunaRender<T, K>
-        key={column.key}
-        column={column}
-        row={row}
-        idx={idx}
-        rowIdx={rowIdx}
-        select={select}
-        haveParent={haveParent}
-        hierarchy={haveChildren}
-        descricao={descricao}
-      />
-    );
+    if (column.tipo === 'coluna') {
+      const { idx } = column;
+      // const colSpan = getColSpan(column, lastFrozenColumnIndex, { type: 'ROW', row });
+      // if (colSpan !== undefined) {
+      //   index += colSpan - 1;
+      // }
+      cells.push(
+        <ColunaRender<T, K>
+          key={column.key}
+          column={column}
+          row={row}
+          idx={idx}
+          rowIdx={rowIdx}
+          select={select}
+          haveParent={haveParent}
+          hierarchy={haveChildren}
+          descricao={descricao}
+        />
+      );
+    } else {
+      cells.push(
+        <ColunaGrupoRender<T, K>
+          key={column.key}
+          grupo={column}
+          row={row}
+          rowIdx={rowIdx}
+          select={select}
+          haveParent={haveParent}
+          hierarchy={haveChildren}
+          descricao={descricao}
+        />
+      );
+    }
   }
 
   return (

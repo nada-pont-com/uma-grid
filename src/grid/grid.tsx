@@ -39,6 +39,7 @@ export default function Grid<
   alturaDescricao = 5,
   showLoading = false,
   hierarchy = false,
+  grupos,
   sort,
   grupoSort,
   className,
@@ -84,6 +85,7 @@ export default function Grid<
     gridOrdem,
   } = useViewColumn<T, K>({
     colunasBruta: cols,
+    grupos,
     gridWidth,
     scrollLeft,
     onSortHeader,

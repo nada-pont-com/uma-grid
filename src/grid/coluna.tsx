@@ -1,7 +1,11 @@
 import { type CSSProperties } from 'react';
 import classNames from 'classnames';
 
-import type { ColunaRenderProps, Data } from './utils/type';
+import type {
+  ColunaGrupoRenderProps,
+  ColunaRenderProps,
+  Data,
+} from './utils/type';
 import isFunction, { withMemo } from './utils/function';
 
 export default function Coluna<T, K extends Data>({
@@ -75,5 +79,60 @@ export default function Coluna<T, K extends Data>({
     </div>
   );
 }
+
+export function ColunaGrupo<T, K extends Data>({
+  grupo,
+  row,
+  rowIdx,
+  select,
+  hierarchy,
+  descricao,
+  haveParent,
+}: ColunaGrupoRenderProps<T, K>) {
+  const { colunas } = grupo;
+  const cells = [];
+
+  for (let index = 0; index < colunas.length; index += 1) {
+    const column = colunas[index];
+
+    if (column.tipo === 'coluna') {
+      const { idx } = column;
+      // const colSpan = getColSpan(column, lastFrozenColumnIndex, { type: 'ROW', row });
+      // if (colSpan !== undefined) {
+      //   index += colSpan - 1;
+      // }
+      cells.push(
+        <ColunaRender<T, K>
+          key={column.key}
+          column={column}
+          row={row}
+          idx={idx}
+          rowIdx={rowIdx}
+          select={select}
+          haveParent={haveParent}
+          hierarchy={hierarchy}
+          descricao={descricao}
+        />
+      );
+    } else {
+      cells.push(
+        <ColunaGrupoRender<T, K>
+          key={column.key}
+          grupo={column}
+          row={row}
+          rowIdx={rowIdx}
+          select={select}
+          haveParent={haveParent}
+          hierarchy={hierarchy}
+          descricao={descricao}
+        />
+      );
+    }
+  }
+
+  return cells;
+}
+
+export const ColunaGrupoRender = withMemo(ColunaGrupo);
 
 export const ColunaRender = withMemo(Coluna);
