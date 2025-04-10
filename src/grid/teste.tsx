@@ -6,14 +6,30 @@ import type {
   RemoveHeaderEventHandler,
   SortHeaderEventHandler,
   ColunaGrid,
+  ColunaGrupo,
 } from './utils/type';
 
 export function generateData(
   numItems: number,
-  colunas: number,
-): { data: Array<Record<string, unknown>>; coluna: ColunaGrid[] } {
+  colunas: number
+): {
+  data: Array<Record<string, unknown>>;
+  coluna: ColunaGrid[];
+  grupos: ColunaGrupo[];
+} {
   const data = [];
   const coluna: ColunaGrid[] = [];
+  const grupos: ColunaGrupo[] = [
+    {
+      key: 'grid-configuracao',
+      texto: 'Configuração',
+    },
+    {
+      key: 'teste',
+      texto: 'Teste',
+    },
+  ];
+
   for (let i = 0; i < numItems; i += 1) {
     const item: Record<string, unknown> = {};
     for (let j = 0; j < colunas; j += 1) {
@@ -22,18 +38,29 @@ export function generateData(
     data.push(item);
   }
   for (let i = 0; i < colunas; i += 1) {
+    let grupo: string | undefined;
+
+    if (i < 3) {
+      grupo = 'grid-configuracao';
+    } else if (i < 5) {
+      //
+    } else if (i < 8) {
+      grupo = 'teste';
+    }
+
     coluna.push({
       key: `${i}x0`,
       texto: `Hx${i}`,
+      grupo,
     });
   }
 
-  return { data, coluna };
+  return { data, coluna, grupos };
 }
 
 export function generateDataByColunas<T = ColunaBruta>(
   numItems: number,
-  colunas: ColunaGrid<T>[],
+  colunas: Array<ColunaGrid<T>>
 ): { data: Array<Record<string, unknown>> } {
   const data = [];
   for (let i = 0; i < numItems; i += 1) {
@@ -48,9 +75,9 @@ export function generateDataByColunas<T = ColunaBruta>(
 }
 
 export default function Teste() {
-  const { data, coluna } = generateData(10, 24);
+  const { data, coluna, grupos } = generateData(10, 10);
 
-  return <Grid data={data} colunas={coluna} sort grupoSort="grid-configuracao" />;
+  return <Grid data={data} colunas={coluna} sort grupos={grupos} />;
 }
 
 export function TesteData<T extends Coluna<T>>({
@@ -60,7 +87,7 @@ export function TesteData<T extends Coluna<T>>({
   onRemoveHeader,
   onSortHeader,
 }: {
-  colunas: ColunaGrid<T>[];
+  colunas: Array<ColunaGrid<T>>;
   className: string;
   onSelect: SelectEventHandler<T>;
   onRemoveHeader: RemoveHeaderEventHandler;

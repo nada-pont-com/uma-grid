@@ -24,6 +24,7 @@ export interface ViewColuna<
   colunasBruta: Array<ColunaGrid<T, K>>;
   scrollLeft: number;
   alturaHeader: number;
+  alturaGrupo: number;
   gridWidth: number;
   gridFilter?: boolean;
   gridOrdemDefault?: GridOrdem<K>;
@@ -115,6 +116,7 @@ export interface GridProps<T extends Coluna<T, K>, K extends Data = Data> {
   colunas: Array<ColunaGrid<T, K>>;
   alturaLinha?: number;
   alturaHeader?: number;
+  alturaGrupo?: number;
   sort?: boolean;
   grupos?: ColunaGrupo[];
   showLoading?: boolean;
@@ -187,6 +189,8 @@ export interface ColunaGrupoProps<T = ColunaBruta, K extends Data = Data>
   colunas: Array<(ColunaProps<T, K> & T) | ColunaGrupoProps<T, K>>;
   idx: number;
   tipo: 'grupo';
+  alturaGrupo?: number;
+  pai?: ColunaGrupoProps<T, K>;
 }
 
 export interface ColunaBruta {
@@ -238,7 +242,12 @@ export interface HeadersProps<T, K extends Data = Data> {
   sort?: boolean;
   group?: string;
   // grupos?: Record<string, ColunaGrupo>;
-  updateOrdem?: (oldIndex: number, newIndex: number) => void;
+  updateOrdem?: (
+    oldIndex: number,
+    newIndex: number,
+    oldLength?: number,
+    newLength?: number
+  ) => void;
   onRemoveHeader?: RemoveHeaderEventHandler;
   select?: GridSelect;
 }
@@ -374,7 +383,7 @@ export interface FiltroActionProps<T, K extends Data> {
 }
 
 export interface FiltroProps<T, K extends Data> {
-  colunas: Array<ColunaProps<T, K> & T>;
+  colunas: Array<(ColunaProps<T, K> & T) | ColunaGrupoProps<T, K>>;
   action?: FiltroActionHandler<T, K>;
 }
 

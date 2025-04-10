@@ -19,6 +19,7 @@ import type {
   AgragadoProps,
   Coluna,
   ColunaBruta,
+  ColunaGrupoProps,
   ColunaProps,
   Data,
   FiltroActionHandler,
@@ -531,6 +532,7 @@ export function useViewColumn<T extends Coluna<T, K>, K extends Data = Data>({
   colunasBruta,
   onSortHeader,
   alturaHeader,
+  alturaGrupo,
   gridOrdemDefault,
   gridFilterFunction,
   gridFilter = false,
@@ -545,118 +547,163 @@ export function useViewColumn<T extends Coluna<T, K>, K extends Data = Data>({
   );
   const [ordem, setOrdem] = useState<boolean>();
 
-  console.log(grupos);
+  const grupoIndex = useMemo(() => {
+    const grupoIndex: Record<string, ColunaGrupoProps<T, K>> = {};
 
-  const { cols, updateOrdem, filtravel, gridTemplateRowHeader, fixaCount } =
-    useMemo(() => {
-      const colunas: Array<ColunaProps<T, K> & T> = [];
-      const grupoIndex: Record<string, number> = {};
+    grupos?.forEach((grupo) => {
+      grupoIndex[grupo.key] = {
+        ...grupo,
+        colunas: [],
+        idx: -1,
+        tipo: 'grupo',
+        id: grupo.key,
+        alturaGrupo,
+      };
+    });
 
-      let filtravel = gridFilter;
-      let fixaCount = 0;
+    return grupoIndex;
+  }, [grupos]);
 
-      colunasBruta.forEach((props, index) => {
-        filtravel = props.filtravel || filtravel;
+  const { cols, updateOrdem, filtravel, fixaCount } = useMemo(() => {
+    const colunas: Array<ColunaProps<T, K> & T> = [];
 
-        const renderHeader = props.renderHeader ?? renderHeaderDefault;
-        const render = props.render ?? renderDefault;
-        const filterFunction =
-          props.filterFunction ??
-          gridFilterFunction ??
-          filtroFunctionDefault<T, K>;
+    let filtravel = gridFilter;
+    let fixaCount = 0;
 
-        const agregadoresRender =
-          props.agregadoresRender ?? renderAgregadoDefault;
+    colunasBruta.forEach((props) => {
+      filtravel = props.filtravel || filtravel;
 
-        if (props.grupo != null) {
-          grupoIndex[props.grupo] = index;
-        }
+      const renderHeader = props.renderHeader ?? renderHeaderDefault;
+      const render = props.render ?? renderDefault;
+      const filterFunction =
+        props.filterFunction ??
+        gridFilterFunction ??
+        filtroFunctionDefault<T, K>;
 
-        if (props.fixa) fixaCount += 1;
+      const agregadoresRender =
+        props.agregadoresRender ?? renderAgregadoDefault;
 
-        colunas.push({
-          ...props,
-          tipo: 'coluna',
-          filtravel: props.filtravel ?? gridFilter,
-          id: props.key,
-          idx: 0,
-          select({ column, rowIdx }) {
-            setSelect({
-              idx: column.idx,
-              rowIdx,
-            });
-          },
+      if (props.fixa) fixaCount += 1;
 
-          selectHeader({ column }) {
-            setSelect({
-              idx: column.idx,
-              rowIdx: -1,
-            });
-            setGridOrdem((prev) => {
-              if (column.order ?? true) {
-                if (prev?.key === column.key) {
-                  return {
-                    key: column.key,
-                    asc: !prev.asc,
-                    ordem: column.orderFunction,
-                  };
-                }
+      colunas.push({
+        ...props,
+        tipo: 'coluna',
+        filtravel: props.filtravel ?? gridFilter,
+        id: props.key,
+        idx: 0,
+        select({ column, rowIdx }) {
+          setSelect({
+            idx: column.idx,
+            rowIdx,
+          });
+        },
+
+        selectHeader({ column }) {
+          setSelect({
+            idx: column.idx,
+            rowIdx: -1,
+          });
+          setGridOrdem((prev) => {
+            if (column.order ?? true) {
+              if (prev?.key === column.key) {
                 return {
                   key: column.key,
-                  asc: false,
+                  asc: !prev.asc,
                   ordem: column.orderFunction,
                 };
               }
-              return prev;
-            });
-          },
-          render,
-          renderHeader,
-          filterFunction,
-          agregadoresRender,
-          ordenar: () => {
-            console.log('Aqui');
-          },
-        });
+              return {
+                key: column.key,
+                asc: false,
+                ordem: column.orderFunction,
+              };
+            }
+            return prev;
+          });
+        },
+        render,
+        renderHeader,
+        filterFunction,
+        agregadoresRender,
+        ordenar: () => {
+          console.log('Aqui');
+        },
+      });
+    });
+
+    colunas
+      .sort((a, b) => {
+        if (b.fixa && a.fixa) return 0;
+        if (b.fixa) return 1;
+        if (a.fixa) return -1;
+        return 0;
+      })
+      .forEach((coluna, index) => {
+        // eslint-disable-next-line no-param-reassign
+        coluna.idx = index;
       });
 
-      colunas
-        .sort((a, b) => {
-          if (b.fixa && a.fixa) return 0;
-          if (b.fixa) return 1;
-          if (a.fixa) return -1;
-          if (a.grupo != null && b.grupo != null) {
-            return grupoIndex[a.grupo] - grupoIndex[b.grupo];
+    return {
+      cols: colunas,
+      filtravel,
+      fixaCount,
+      updateOrdem: (oldIndex: number, newIndex: number) => {
+        const d = oldIndex - newIndex < 0 ? -1 : 1;
+
+        // Selecionado
+        const grupoOld = grupoIndex[cols[oldIndex].grupo ?? ''];
+
+        // Quem foi escostado
+        const grupoNew = grupoIndex[cols[newIndex].grupo ?? ''];
+
+        const tamanhoGrupoOld = grupoOld?.colunas.length ?? 1;
+        const tamanhoGrupoNew = (grupoNew?.colunas.length ?? 1) - 1;
+
+        cols.forEach((col) => {
+          if (col.grupo != null) {
+            if (col.grupo === grupoOld?.key) {
+              const idx = grupoOld?.colunas.findIndex((c) => c.key === col.key);
+              if (d < 0) {
+                // eslint-disable-next-line no-param-reassign
+                col.idx =
+                  newIndex + tamanhoGrupoNew + idx - (tamanhoGrupoOld - 1);
+              } else {
+                // eslint-disable-next-line no-param-reassign
+                col.idx = newIndex + idx;
+              }
+              return;
+            }
           }
-          return 0;
-        })
-        .forEach((coluna, index) => {
-          // eslint-disable-next-line no-param-reassign
-          coluna.idx = index;
+          // Depois da posição antiga e antes da nova
+          if (col.idx > oldIndex && col.idx <= newIndex + tamanhoGrupoNew) {
+            if (d < 0) {
+              // eslint-disable-next-line no-param-reassign
+              col.idx += d * tamanhoGrupoOld;
+            } else {
+              // eslint-disable-next-line no-param-reassign
+              col.idx += d;
+            }
+          }
+          // Antes da posição antiga e depois da nova
+          if (col.idx < oldIndex && col.idx >= newIndex) {
+            if (d > 0) {
+              // eslint-disable-next-line no-param-reassign
+              col.idx += d * tamanhoGrupoOld;
+            } else {
+              // eslint-disable-next-line no-param-reassign
+              col.idx += d;
+            }
+          }
         });
 
-      return {
-        cols: colunas,
-        filtravel,
-        fixaCount,
-        gridTemplateRowHeader: `repeat(1, ${alturaHeader}px) ${filtravel ? `repeat(1, ${alturaHeader - 8}px) ` : ''}`,
-        updateOrdem: (oldIndex: number, newIndex: number) => {
-          const d = oldIndex - newIndex < 0 ? -1 : 1;
-          cols.forEach((col) => {
-            if (col.idx > oldIndex && col.idx <= newIndex) {
-              // eslint-disable-next-line no-param-reassign
-              col.idx += d;
-            }
-            if (col.idx < oldIndex && col.idx >= newIndex) {
-              // eslint-disable-next-line no-param-reassign
-              col.idx += d;
-            }
-          });
-          cols[oldIndex].idx = newIndex;
-          setOrdem((o) => !o);
-        },
-      };
-    }, [colunasBruta]);
+        if (grupoOld == null) {
+          cols[oldIndex].idx = newIndex + (d < 0 ? tamanhoGrupoNew : 0);
+        }
+
+        setOrdem((o) => !o);
+      },
+    };
+  }, [colunasBruta]);
 
   const { colunas } = useMemo(() => {
     const index = new Map<string, number>();
@@ -676,6 +723,52 @@ export function useViewColumn<T extends Coluna<T, K>, K extends Data = Data>({
       colunas: [...colsSort],
     };
   }, [cols, ordem]);
+
+  const { colunasAgrupadas, nivelGrupo } = useMemo(() => {
+    const colunasAgrupadas: Array<
+      (ColunaProps<T, K> & T) | ColunaGrupoProps<T, K>
+    > = [];
+
+    let nivel = 0;
+
+    colunas.forEach((coluna) => {
+      if (coluna.grupo != null && grupoIndex[coluna.grupo]) {
+        const grupo = grupoIndex[coluna.grupo];
+
+        if (grupo.colunas.findIndex((c) => c.key === coluna.key) !== -1) {
+          grupo.colunas = [];
+        }
+
+        grupo.colunas.push(coluna);
+
+        let grupoPai = grupo;
+        let nivelGrupo = 1;
+
+        while (grupoPai.grupo != null && grupoIndex[grupoPai.grupo]) {
+          nivelGrupo += 1;
+          const novoGrupoPai = grupoIndex[grupoPai.grupo];
+
+          if (grupoPai.colunas.length === 1) {
+            grupoPai.pai = novoGrupoPai;
+            novoGrupoPai.colunas.push(grupoPai);
+          }
+
+          grupoPai = novoGrupoPai;
+        }
+
+        nivel = Math.max(nivel, nivelGrupo);
+
+        if (grupoPai.colunas.length === 1) {
+          grupoPai.idx = coluna.idx;
+          colunasAgrupadas.push({ ...grupoPai });
+        }
+      } else {
+        colunasAgrupadas.push(coluna);
+      }
+    });
+
+    return { colunasAgrupadas, nivelGrupo: nivel };
+  }, [colunas, grupoIndex]);
 
   const { gridTemplateColumns, colunaMedidas, gridCSSFixaCells } =
     useMemo(() => {
@@ -717,13 +810,16 @@ export function useViewColumn<T extends Coluna<T, K>, K extends Data = Data>({
       };
     }, [gridWidth, colunas]);
 
+  const gridTemplateRowHeader = useMemo(() => {
+    return `repeat(1, ${alturaHeader + alturaGrupo * nivelGrupo}px) ${filtravel ? `repeat(1, ${alturaHeader - 8}px) ` : ''}`;
+  }, [filtravel, alturaHeader, nivelGrupo, alturaGrupo]);
+
   const { colOverscanStartIdx, colOverscanEndIdx } = useMemo(() => {
     let aux = false;
     let colOverscanStartIdx = 0;
-    let colOverscanEndIdx = colunas.length;
+    let colOverscanEndIdx = colunasAgrupadas.length;
 
-    for (let i = colOverscanStartIdx; i < colOverscanEndIdx; i += 1) {
-      const coluna = colunas[i];
+    const medidaColuna = (coluna: ColunaProps<T, K>, i: number) => {
       const medida = colunaMedidas.get(coluna);
       if (medida != null) {
         const { left, width } = medida;
@@ -735,32 +831,61 @@ export function useViewColumn<T extends Coluna<T, K>, K extends Data = Data>({
 
         if (scrollLeft + gridWidth <= left) {
           colOverscanEndIdx = i;
-          break;
+          return true;
         }
+      }
+      return false;
+    };
+
+    const medidaGrupo = (grupo: ColunaGrupoProps<T, K>, i: number) => {
+      let stop = false;
+      const stack = [...grupo.colunas];
+
+      while (stack.length > 0) {
+        const col = stack.pop();
+        if (col != null && col.tipo === 'grupo') {
+          stack.push(...col.colunas);
+        } else if (col != null) {
+          stop = medidaColuna(col, i);
+        }
+        if (stop) break;
+      }
+
+      return stop;
+    };
+
+    for (let i = colOverscanStartIdx; i < colOverscanEndIdx; i += 1) {
+      const coluna = colunasAgrupadas[i];
+      if (coluna.tipo === 'grupo') {
+        if (medidaGrupo(coluna, i)) break;
+      } else if (medidaColuna(coluna, i)) {
+        break;
       }
     }
 
-    colOverscanEndIdx = Math.min(colOverscanEndIdx, colunas.length);
+    colOverscanEndIdx = Math.min(colOverscanEndIdx, colunasAgrupadas.length);
     // colOverscanStartIdx = Math.max(colOverscanStartIdx, 0);
 
     return {
       colOverscanStartIdx,
       colOverscanEndIdx,
     };
-  }, [colunaMedidas, colunas, gridWidth, scrollLeft]);
+  }, [colunaMedidas, colunasAgrupadas, gridWidth, scrollLeft]);
 
   const [colunasView] = useMemo(() => {
-    const colunasView: Array<ColunaProps<T, K> & T> = [];
+    const colunasView: Array<(ColunaProps<T, K> & T) | ColunaGrupoProps<T, K>> =
+      [];
+
     if (fixaCount !== 0) {
       for (let i = 0; i < Math.min(fixaCount, colOverscanStartIdx); i += 1) {
-        colunasView.push(colunas[i]);
+        colunasView.push(colunasAgrupadas[i]);
       }
     }
     for (let i = colOverscanStartIdx; i < colOverscanEndIdx; i += 1) {
-      colunasView.push(colunas[i]);
+      colunasView.push(colunasAgrupadas[i]);
     }
     return [colunasView];
-  }, [colOverscanStartIdx, colOverscanEndIdx, colunas]);
+  }, [colOverscanStartIdx, colOverscanEndIdx, colunasAgrupadas]);
 
   return {
     colunas,

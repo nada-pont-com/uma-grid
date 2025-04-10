@@ -60,7 +60,7 @@ export function Grupo<T, K extends Record<string, unknown>>({
   const cells = [];
 
   const { key } = grupo;
-  const props = { idx, headerid: key };
+  const props = { idx, headerid: key, grupoLength: colunas.length };
 
   for (let index = 0; index < colunas.length; index += 1) {
     const column = colunas[index];
@@ -115,7 +115,8 @@ export function Grupo<T, K extends Record<string, unknown>>({
         // });
       }}
     >
-      {cells}
+      <div className="grid-header-grupo-titulo">{grupo.texto}</div>
+      <div className="grid-header-grupo-colunas">{cells}</div>
     </div>
   );
 }
@@ -181,9 +182,15 @@ function HeaderSort<T, K extends Record<string, unknown>>({
           updateOrdem != null &&
           evt.related.classList.contains('grid-header')
         ) {
+          console.log(
+            evt.dragged.getAttribute('idx'),
+            evt.related.getAttribute('idx')
+          );
           updateOrdem(
             Number(evt.dragged.getAttribute('idx')),
-            Number(evt.related.getAttribute('idx'))
+            Number(evt.related.getAttribute('idx')),
+            Number(evt.dragged.getAttribute('grupoLength') ?? 1),
+            Number(evt.related.getAttribute('grupoLength') ?? 1)
           );
         }
         return true;

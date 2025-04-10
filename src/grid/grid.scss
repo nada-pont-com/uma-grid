@@ -260,6 +260,21 @@
       grid-row-start: var(--grid-row-start);
     }
 
+    .grid-header-grupo {
+      .grid-header-grupo-titulo {
+        height: calc(var(--grid-grupo-height) * 1px);
+      }
+      .grid-header-grupo-colunas {
+        display: flex;
+        width: 100%;
+        
+        .grid-header {
+          width: 100%;
+          height: calc(var(--grid-header-height) * 1px);
+        }
+      }
+    }
+
     .grid-empty-cell {
       div {
         position: absolute;

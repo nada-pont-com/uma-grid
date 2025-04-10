@@ -35,6 +35,7 @@ export default function Grid<
   colunas: cols = [],
   alturaLinha = 36,
   alturaHeader = 48,
+  alturaGrupo = 30,
   descricao = false,
   alturaDescricao = 5,
   showLoading = false,
@@ -90,6 +91,7 @@ export default function Grid<
     scrollLeft,
     onSortHeader,
     alturaHeader,
+    alturaGrupo,
     gridFilterFunction: filterFunction,
   });
 
@@ -373,6 +375,7 @@ export default function Grid<
           '--grid-scroll-left': scrollLeft,
           '--grid-header-height': alturaHeader,
           '--grid-height': clientHeight,
+          '--grid-grupo-height': alturaGrupo,
         } as unknown as CSSProperties
       }
       onScroll={handleScroll}
